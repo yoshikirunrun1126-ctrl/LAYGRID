@@ -4,18 +4,9 @@ import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Reveal } from '@/components/reveal'
 
-const FORM_SUBMIT_ACTION = 'https://formsubmit.co/yoshiki.laygrid@gmail.com'
-
-function getReturnUrl() {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (typeof window !== 'undefined' ? window.location.origin : '')
-  return siteUrl ? `${siteUrl}/?submitted=contact` : ''
-}
-
 export function Contact() {
   return (
-    <Suspense fallback={<ContactLayout showForm returnUrl="" />}>
+    <Suspense fallback={<ContactLayout showForm />}>
       <ContactContent />
     </Suspense>
   )
@@ -24,40 +15,44 @@ export function Contact() {
 function ContactContent() {
   const searchParams = useSearchParams()
   const [showSuccess, setShowSuccess] = useState(false)
-  const [returnUrl, setReturnUrl] = useState(() =>
-    process.env.NEXT_PUBLIC_SITE_URL
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/?submitted=contact`
-      : '',
-  )
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setReturnUrl(getReturnUrl())
-  }, [])
+    if (searchParams.get('submitted') === 'contact') {
+      setShowSuccess(true)
+      setError(null)
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
+      window.history.replaceState(null, '', `${window.location.pathname}#contact`)
+      return
+    }
 
-  useEffect(() => {
-    if (searchParams.get('submitted') !== 'contact') return
-
-    setShowSuccess(true)
-    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
-    window.history.replaceState(null, '', `${window.location.pathname}#contact`)
+    if (searchParams.get('contact_error') === '1') {
+      setShowSuccess(false)
+      setError('送信に失敗しました。時間をおいて再度お試しください。')
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
+      window.history.replaceState(null, '', `${window.location.pathname}#contact`)
+    }
   }, [searchParams])
 
   return (
     <ContactLayout
       showForm={!showSuccess}
-      returnUrl={returnUrl}
-      onNewInquiry={() => setShowSuccess(false)}
+      error={error}
+      onNewInquiry={() => {
+        setShowSuccess(false)
+        setError(null)
+      }}
     />
   )
 }
 
 function ContactLayout({
   showForm,
-  returnUrl,
+  error,
   onNewInquiry,
 }: {
   showForm: boolean
-  returnUrl?: string
+  error?: string | null
   onNewInquiry?: () => void
 }) {
   return (
@@ -100,16 +95,13 @@ function ContactLayout({
             <Reveal delay={0.1}>
               {showForm ? (
                 <form
-                  action={FORM_SUBMIT_ACTION}
+                  action="/api/contact"
                   method="POST"
                   className="rounded-2xl border border-border bg-card p-8 sm:p-10"
                 >
-                  <input type="hidden" name="_subject" value="LAYGRID お問い合わせ" />
-                  <input type="hidden" name="_template" value="table" />
-                  <input type="hidden" name="_next" value={returnUrl} />
                   <input
-                    type="text"
-                    name="_honey"
+                    type="checkbox"
+                    name="botcheck"
                     tabIndex={-1}
                     autoComplete="off"
                     className="hidden"
@@ -157,6 +149,11 @@ function ContactLayout({
                       />
                     </Field>
                   </div>
+                  {error && (
+                    <p className="mt-6 text-sm text-red-400" role="alert">
+                      {error}
+                    </p>
+                  )}
                   <button
                     type="submit"
                     className="mt-10 inline-flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-7 py-3.5 text-sm font-medium text-background transition-transform hover:-translate-y-0.5 sm:w-auto"
