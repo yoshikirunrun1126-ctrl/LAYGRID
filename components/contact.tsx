@@ -1,8 +1,9 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Suspense, useState, type FormEvent } from 'react'
 import { Reveal } from '@/components/reveal'
+
+const FORM_ENDPOINT = 'https://formsubmit.co/ajax/yoshiki.laygrid@gmail.com'
 
 export function Contact() {
   return (
@@ -13,31 +14,65 @@ export function Contact() {
 }
 
 function ContactContent() {
-  const searchParams = useSearchParams()
   const [showSuccess, setShowSuccess] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (searchParams.get('submitted') === 'contact') {
-      setShowSuccess(true)
-      setError(null)
-      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
-      window.history.replaceState(null, '', `${window.location.pathname}#contact`)
-      return
-    }
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
 
-    if (searchParams.get('contact_error') === '1') {
-      setShowSuccess(false)
+    const formData = new FormData(e.currentTarget)
+
+    try {
+      const response = await fetch(FORM_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.get('name'),
+          company: formData.get('company') || '（未入力）',
+          email: formData.get('email'),
+          message: formData.get('message'),
+          _subject: 'LAYGRID お問い合わせ',
+          _template: 'table',
+        }),
+      })
+
+      const data = (await response.json()) as {
+        success?: boolean | string
+        message?: string
+      }
+
+      if (data.success === true || data.success === 'true') {
+        setShowSuccess(true)
+        e.currentTarget.reset()
+        document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
+        return
+      }
+
+      setError(
+        data.message ===
+          "This form needs Activation. We've sent you an email containing an 'Activate Form' link. Just click it and your form will be actived!"
+          ? 'フォームの有効化が必要です。yoshiki.laygrid@gmail.com に届いたメールのリンクをクリックしてください。'
+          : '送信に失敗しました。時間をおいて再度お試しください。',
+      )
+    } catch {
       setError('送信に失敗しました。時間をおいて再度お試しください。')
-      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
-      window.history.replaceState(null, '', `${window.location.pathname}#contact`)
+    } finally {
+      setSubmitting(false)
     }
-  }, [searchParams])
+  }
 
   return (
     <ContactLayout
       showForm={!showSuccess}
+      submitting={submitting}
       error={error}
+      onSubmit={handleSubmit}
       onNewInquiry={() => {
         setShowSuccess(false)
         setError(null)
@@ -48,11 +83,15 @@ function ContactContent() {
 
 function ContactLayout({
   showForm,
+  submitting,
   error,
+  onSubmit,
   onNewInquiry,
 }: {
   showForm: boolean
+  submitting?: boolean
   error?: string | null
+  onSubmit?: (e: FormEvent<HTMLFormElement>) => void
   onNewInquiry?: () => void
 }) {
   return (
@@ -95,19 +134,9 @@ function ContactLayout({
             <Reveal delay={0.1}>
               {showForm ? (
                 <form
-                  action="/api/contact"
-                  method="POST"
+                  onSubmit={onSubmit}
                   className="rounded-2xl border border-border bg-card p-8 sm:p-10"
                 >
-                  <input
-                    type="checkbox"
-                    name="botcheck"
-                    tabIndex={-1}
-                    autoComplete="off"
-                    className="hidden"
-                    aria-hidden="true"
-                  />
-
                   <div className="space-y-8">
                     <Field label="お名前" htmlFor="name">
                       <input
@@ -156,10 +185,11 @@ function ContactLayout({
                   )}
                   <button
                     type="submit"
-                    className="mt-10 inline-flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-7 py-3.5 text-sm font-medium text-background transition-transform hover:-translate-y-0.5 sm:w-auto"
+                    disabled={submitting}
+                    className="mt-10 inline-flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-7 py-3.5 text-sm font-medium text-background transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
-                    送信する
-                    <span aria-hidden="true">→</span>
+                    {submitting ? '送信中…' : '送信する'}
+                    {!submitting && <span aria-hidden="true">→</span>}
                   </button>
                 </form>
               ) : (
