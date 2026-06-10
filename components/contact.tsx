@@ -1,6 +1,7 @@
 'use client'
 
-import { Suspense, useState, type FormEvent } from 'react'
+import { Suspense, useEffect, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Reveal } from '@/components/reveal'
 
 const FORM_ENDPOINT = 'https://formsubmit.co/ajax/yoshiki.laygrid@gmail.com'
@@ -14,9 +15,27 @@ export function Contact() {
 }
 
 function ContactContent() {
+  const searchParams = useSearchParams()
   const [showSuccess, setShowSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get('submitted') === 'contact') {
+      setShowSuccess(true)
+      setError(null)
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
+      window.history.replaceState(null, '', `${window.location.pathname}#contact`)
+      return
+    }
+
+    if (searchParams.get('contact_error') === '1') {
+      setShowSuccess(false)
+      setError('送信に失敗しました。時間をおいて再度お試しください。')
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
+      window.history.replaceState(null, '', `${window.location.pathname}#contact`)
+    }
+  }, [searchParams])
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
