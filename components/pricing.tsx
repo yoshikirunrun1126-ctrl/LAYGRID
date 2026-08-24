@@ -5,7 +5,7 @@ import { Reveal } from '@/components/reveal'
 const plans = [
   {
     name: 'Starter',
-    price: '¥50,000',
+    price: '¥100,000',
     suffix: '〜',
     desc: '個人や小規模なプロジェクトに。シンプルで要点を押さえたWebに。',
     features: [
